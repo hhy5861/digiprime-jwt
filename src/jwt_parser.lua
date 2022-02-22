@@ -9,7 +9,7 @@ local json = require "cjson"
 local openssl_digest = require "resty.openssl.digest"
 local openssl_hmac = require "resty.openssl.hmac"
 local openssl_pkey = require "resty.openssl.pkey"
-local asn_sequence = require "kong.plugins.jwt.asn_sequence"
+local asn_sequence = require "kong.plugins.digiprime-jwt.asn_sequence"
 
 local rep = string.rep
 local sub = string.sub
@@ -348,40 +348,6 @@ local registered_claims = {
     end
   }
 }
-
-
---- Verify registered claims (according to RFC 7519 Section 4.1)
--- Claims are verified by type and a check.
--- @param claims_to_verify A list of claims to verify.
--- @return A boolean indicating true if no errors zere found
--- @return A list of errors
-function _M:verify_registered_claims(claims_to_verify)
-  if not claims_to_verify then
-    claims_to_verify = {}
-  end
-
-  local errors
-  local claim
-  local claim_rules
-
-  for _, claim_name in pairs(claims_to_verify) do
-    claim = self.claims[claim_name]
-    claim_rules = registered_claims[claim_name]
-
-    if type(claim) ~= claim_rules.type then
-      errors = add_error(errors, claim_name, "must be a " .. claim_rules.type)
-
-    else
-      local check_err = claim_rules.check(claim)
-      if check_err then
-        errors = add_error(errors, claim_name, check_err)
-      end
-    end
-  end
-
-  return errors == nil, errors
-end
-
 
 --- Check that the maximum allowed expiration is not reached
 -- @param maximum_expiration of the claim

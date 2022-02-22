@@ -2,9 +2,8 @@ local typedefs = require "kong.db.schema.typedefs"
 
 
 return {
-  name = "jwt",
+  name = "digiprime-jwt",
   fields = {
-    { consumer = typedefs.no_consumer },
     { protocols = typedefs.protocols_http },
     { config = {
         type = "record",
@@ -14,21 +13,8 @@ return {
               elements = { type = "string" },
               default = { "jwt" },
           }, },
-          { cookie_names = {
-              type = "set",
-              elements = { type = "string" },
-              default = {}
-          }, },
-          { key_claim_name = { type = "string", default = "iss" }, },
           { secret_is_base64 = { type = "boolean", required = true, default = false }, },
-          { claims_to_verify = {
-              type = "set",
-              elements = {
-                type = "string",
-                one_of = { "exp", "nbf" },
-          }, }, },
-          { anonymous = { type = "string" }, },
-          { run_on_preflight = { type = "boolean", required = true, default = true }, },
+          { secret_key = { type = "string", required = true, default = "f81ebc2f-f4b2-ff8e-cae9-dacce0270c88" }, },
           { maximum_expiration = {
             type = "number",
             default = 0,

@@ -1,2 +1,29 @@
+.DS_Store
+.vagrant/
+.buildpath
+.project
 .idea
+.env
+
+servroot*
+
+# kong
+nginx_tmp/
+kong*.yml
+
+# luacov
+luacov.*
+/doc
+
+# autodoc
+autodoc/output
+
+# ldoc
+spec/docs
+
+kong-build-tools
+bin/grpcurl
+
+*.so
+*.bak
 .vscode

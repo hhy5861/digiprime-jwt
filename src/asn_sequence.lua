@@ -5,12 +5,26 @@ local string_char = string.char
 local table_sort = table.sort
 local table_insert = table.insert
 
-local _M = {}
+local _M = {
+  HEADERS = {
+    USER = "user",
+    TENANT = "tenant",
+    ACCOUNT = "account",
+    APPLICATION = "application",
+    CHANNEL = "channel",
+    EXT_INFO = "ext-info",
+    POS_ACCOUNT = "pos-account",
+    POS_DEVICE = "pos-device",
+    POS_STORE = "pos-store"
+  },
+}
+
 _M.__index = _M
 
 function _M.create_simple_sequence(input)
   if type(input) ~= "table"
-    then error("Argument #1 must be a table", 2)
+  then
+    error("Argument #1 must be a table", 2)
   end
   local sortTable = {}
   for pair in pairs(input) do
@@ -18,9 +32,10 @@ function _M.create_simple_sequence(input)
   end
   table_sort(sortTable)
   local numbers = ""
-  for i,n in ipairs(sortTable) do
+  for i, n in ipairs(sortTable) do
     if type(n) ~= "number"
-      then error("Table must use numbers as keys", 2)
+    then
+      error("Table must use numbers as keys", 2)
     end
     local number = input[sortTable[i]]
     if type(number) ~= "string" then
@@ -33,7 +48,8 @@ function _M.create_simple_sequence(input)
     numbers = numbers .. "\x02" .. string_char(length) .. number
   end
   if #numbers > 0x7F
-    then error("Multi-byte lengths are not supported")
+  then
+    error("Multi-byte lengths are not supported")
   end
   return "\x30" .. string_char(#numbers) .. numbers
 end
@@ -52,16 +68,16 @@ function _M.parse_simple_sequence(input)
     error("Sequence is incomplete")
   elseif length > 0x7F then
     error("Multi-byte lengths are not supported")
-  elseif length ~= #input-2 then
+  elseif length ~= #input - 2 then
     error("Sequence's asn length does not match expected length")
   end
   local seq = {}
   local counter = 1
   local position = 3
   while true do
-    if position == #input+1 then
+    if position == #input + 1 then
       break
-    elseif position > #input+1 then
+    elseif position > #input + 1 then
       error("Sequence moved out of bounds.")
     elseif counter > 0xFF then
       error("Sequence is too long")
@@ -73,10 +89,10 @@ function _M.parse_simple_sequence(input)
     local integerLength = string_byte(chunk, 2)
     if integerLength > 0x7F then
       error("Multi-byte lengths are not supported.")
-    elseif integerLength > #chunk-2 then
+    elseif integerLength > #chunk - 2 then
       error("Integer is longer than remaining length")
     end
-    local integer = string_sub(chunk, 3, integerLength+2)
+    local integer = string_sub(chunk, 3, integerLength + 2)
     seq[counter] = integer
     position = position + integerLength + 2
     counter = counter + 1
@@ -92,7 +108,7 @@ function _M.unsign_integer(input, len)
   end
   if string_byte(input) ~= 0 and #input > len then
     error("Cannot unsign integer to length.", 2)
-  elseif string_byte(input) == 0 and #input == len+1 then
+  elseif string_byte(input) == 0 and #input == len + 1 then
     return string_sub(input, 2)
   end
   if #input == len then

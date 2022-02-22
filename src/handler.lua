@@ -1,6 +1,7 @@
 local constants = require "kong.constants"
-local jwt_decoder = require "kong.plugins.jwt.jwt_parser"
-
+local jwt_decoder = require "kong.plugins.digiprime-jwt.jwt_parser"
+local sequence = require "kong.plugins.digiprime-jwt.asn_sequence"
+local router = require "router"
 
 local fmt = string.format
 local kong = kong
@@ -9,13 +10,12 @@ local error = error
 local ipairs = ipairs
 local tostring = tostring
 local re_gmatch = ngx.re.gmatch
-
+local _ = require "lodash"
 
 local JwtHandler = {
   PRIORITY = 1005,
   VERSION = "0.0.1",
 }
-
 
 --- Retrieve a JWT in a request.
 -- Checks for the JWT in URI parameters, then in cookies, and finally
@@ -66,63 +66,67 @@ local function retrieve_token(conf)
   end
 end
 
-
-local function load_credential(jwt_secret_key)
-  local row, err = kong.db.jwt_secrets:select_by_key(jwt_secret_key)
-  if err then
-    return nil, err
-  end
-  return row
-end
-
-
-local function set_consumer(consumer, credential, token)
-  kong.client.authenticate(consumer, credential)
-
+local function set_headers(claims)
   local set_header = kong.service.request.set_header
   local clear_header = kong.service.request.clear_header
 
-  if consumer and consumer.id then
-    set_header(constants.HEADERS.CONSUMER_ID, consumer.id)
-  else
-    clear_header(constants.HEADERS.CONSUMER_ID)
-  end
+  _.forEach(sequence.HEADERS, function(key)
+    local values = claims[key]
+    if values then
+      set_header(key, user)
+    else
+      clear_header(key)
+    end
+  end)
 
-  if consumer and consumer.custom_id then
-    set_header(constants.HEADERS.CONSUMER_CUSTOM_ID, consumer.custom_id)
-  else
-    clear_header(constants.HEADERS.CONSUMER_CUSTOM_ID)
-  end
-
-  if consumer and consumer.username then
-    set_header(constants.HEADERS.CONSUMER_USERNAME, consumer.username)
-  else
-    clear_header(constants.HEADERS.CONSUMER_USERNAME)
-  end
-
-  if credential and credential.key then
-    set_header(constants.HEADERS.CREDENTIAL_IDENTIFIER, credential.key)
-  else
-    clear_header(constants.HEADERS.CREDENTIAL_IDENTIFIER)
-  end
-
-  clear_header(constants.HEADERS.CREDENTIAL_USERNAME)
-
-  if credential then
-    clear_header(constants.HEADERS.ANONYMOUS)
-  else
-    set_header(constants.HEADERS.ANONYMOUS, true)
-  end
-
-  if token then
-    kong.ctx.shared.authenticated_jwt_token = token -- TODO: wrap in a PDK function?
-    ngx.ctx.authenticated_jwt_token = token  -- backward compatibility only
-  else
-    kong.ctx.shared.authenticated_jwt_token = nil
-    ngx.ctx.authenticated_jwt_token = nil  -- backward compatibility only
-  end
 end
 
+local function skip_uri(conf)
+  local r = router.new()
+  local is_skip = false
+
+  _.forEach(conf.skip_get_uri, function(uri)
+    r.match("GET", uri, function()
+      is_skip = true
+    end)
+  end)
+
+  _.forEach(conf.skip_post_uri, function(uri)
+    r.match("POST", uri, function()
+      is_skip = true
+    end)
+  end)
+
+  _.forEach(conf.skip_put_uri, function(uri)
+    r.match("PUT", uri, function()
+      is_skip = true
+    end)
+  end)
+
+  _.forEach(conf.skip_delete_uri, function(uri)
+    r.match("DELETE", uri, function()
+      is_skip = true
+    end)
+  end)
+
+  _.forEach(conf.skip_head_uri, function(uri)
+    r.match("HEAD", uri, function()
+      is_skip = true
+    end)
+  end)
+
+  _.forEach(conf.skip_patch_uri, function(uri)
+    r.match("PATCH", uri, function()
+      is_skip = true
+    end)
+  end)
+
+  local method = kong.request.get_method()
+  local uri = kong.request.get_path()
+  r:execute(method, uri)
+
+  return is_skip
+end
 
 local function do_authentication(conf)
   local token, err = retrieve_token(conf)
@@ -150,34 +154,8 @@ local function do_authentication(conf)
   local claims = jwt.claims
   local header = jwt.header
 
-  local jwt_secret_key = claims[conf.key_claim_name] or header[conf.key_claim_name]
-  if not jwt_secret_key then
-    return false, { status = 401, message = "No mandatory '" .. conf.key_claim_name .. "' in claims" }
-  elseif jwt_secret_key == "" then
-    return false, { status = 401, message = "Invalid '" .. conf.key_claim_name .. "' in claims" }
-  end
-
-  -- Retrieve the secret
-  local jwt_secret_cache_key = kong.db.jwt_secrets:cache_key(jwt_secret_key)
-  local jwt_secret, err      = kong.cache:get(jwt_secret_cache_key, nil,
-                                              load_credential, jwt_secret_key)
-  if err then
-    return error(err)
-  end
-
-  if not jwt_secret then
-    return false, { status = 401, message = "No credentials found for given '" .. conf.key_claim_name .. "'" }
-  end
-
-  local algorithm = jwt_secret.algorithm or "HS256"
-
-  -- Verify "alg"
-  if jwt.header.alg ~= algorithm then
-    return false, { status = 401, message = "Invalid algorithm" }
-  end
-
-  local jwt_secret_value = algorithm ~= nil and algorithm:sub(1, 2) == "HS" and
-                           jwt_secret.secret or jwt_secret.rsa_public_key
+  local algorithm = header.alg
+  local jwt_secret_value = algorithm ~= nil and algorithm:sub(1, 2) == "HS" and conf.secret_key
 
   if conf.secret_is_base64 then
     jwt_secret_value = jwt:base64_decode(jwt_secret_value)
@@ -193,12 +171,6 @@ local function do_authentication(conf)
   end
 
   -- Verify the JWT registered claims
-  local ok_claims, errors = jwt:verify_registered_claims(conf.claims_to_verify)
-  if not ok_claims then
-    return false, { status = 401, errors = errors }
-  end
-
-  -- Verify the JWT registered claims
   if conf.maximum_expiration ~= nil and conf.maximum_expiration > 0 then
     local ok, errors = jwt:check_maximum_expiration(conf.maximum_expiration)
     if not ok then
@@ -206,28 +178,10 @@ local function do_authentication(conf)
     end
   end
 
-  -- Retrieve the consumer
-  local consumer_cache_key = kong.db.consumers:cache_key(jwt_secret.consumer.id)
-  local consumer, err      = kong.cache:get(consumer_cache_key, nil,
-                                            kong.client.load_consumer,
-                                            jwt_secret.consumer.id, true)
-  if err then
-    return error(err)
-  end
-
-  -- However this should not happen
-  if not consumer then
-    return false, {
-      status = 401,
-      message = fmt("Could not find consumer for '%s=%s'", conf.key_claim_name, jwt_secret_key)
-    }
-  end
-
-  set_consumer(consumer, jwt_secret, token)
+  set_headers(claims)
 
   return true
 end
-
 
 function JwtHandler:access(conf)
   -- check if preflight request and whether it should be authenticated
@@ -235,31 +189,10 @@ function JwtHandler:access(conf)
     return
   end
 
-  if conf.anonymous and kong.client.get_credential() then
-    -- we're already authenticated, and we're configured for using anonymous,
-    -- hence we're in a logical OR between auth methods and we're already done.
-    return
-  end
-
   local ok, err = do_authentication(conf)
   if not ok then
-    if conf.anonymous then
-      -- get anonymous user
-      local consumer_cache_key = kong.db.consumers:cache_key(conf.anonymous)
-      local consumer, err      = kong.cache:get(consumer_cache_key, nil,
-                                                kong.client.load_consumer,
-                                                conf.anonymous, true)
-      if err then
-        return error(err)
-      end
-
-      set_consumer(consumer)
-
-    else
-      return kong.response.exit(err.status, err.errors or { message = err.message })
-    end
+    return kong.response.exit(err.status, err.errors or { message = err.message })
   end
 end
-
 
 return JwtHandler
