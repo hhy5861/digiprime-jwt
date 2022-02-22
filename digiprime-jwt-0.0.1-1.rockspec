@@ -26,12 +26,8 @@ build = {
   type = "builtin",
   modules = {
     ["kong.plugins."..pluginName..".asn_sequence"] = "src/asn_sequence.lua",
-    ["kong.plugins."..pluginName..".daos"] = "src/daos.lua",
     ["kong.plugins."..pluginName..".handler"] = "src/handler.lua",
     ["kong.plugins."..pluginName..".jwt_parser"] = "src/jwt_parser.lua",
     ["kong.plugins."..pluginName..".schema"] = "src/schema.lua",
-    ["kong.plugins."..pluginName..".migrations.base_digiprime_jwt"] = "src/migrations/000_base_digiprime_jwt.lua",
-    ["kong.plugins."..pluginName..".migrations.101_to_299"] = "src/migrations/002_101_to_299.lua",
-    ["kong.plugins."..pluginName..".migrations.init"] = "src/migrations/init.lua"
   }
 }
