@@ -1,0 +1,84 @@
+local typedefs = require "kong.db.schema.typedefs"
+
+
+return {
+  name = "jwt",
+  fields = {
+    { consumer = typedefs.no_consumer },
+    { protocols = typedefs.protocols_http },
+    { config = {
+        type = "record",
+        fields = {
+          { uri_param_names = {
+              type = "set",
+              elements = { type = "string" },
+              default = { "jwt" },
+          }, },
+          { cookie_names = {
+              type = "set",
+              elements = { type = "string" },
+              default = {}
+          }, },
+          { key_claim_name = { type = "string", default = "iss" }, },
+          { secret_is_base64 = { type = "boolean", required = true, default = false }, },
+          { claims_to_verify = {
+              type = "set",
+              elements = {
+                type = "string",
+                one_of = { "exp", "nbf" },
+          }, }, },
+          { anonymous = { type = "string" }, },
+          { run_on_preflight = { type = "boolean", required = true, default = true }, },
+          { maximum_expiration = {
+            type = "number",
+            default = 0,
+            between = { 0, 31536000 },
+          }, },
+          { header_names = {
+            type = "set",
+            elements = { type = "string" },
+            default = { "authorization" },
+          }, },
+          { skip_get_uri = {
+              type = "array",
+              elements = { type = "string" },
+              default = {},
+          }, },
+          { skip_post_uri = {
+              type = "array",
+              elements = { type = "string" },
+              default = {},
+          }, },
+          { skip_put_uri = {
+              type = "array",
+              elements = { type = "string" },
+              default = {},
+          }, },
+          { skip_delete_uri = {
+              type = "array",
+              elements = { type = "string" },
+              default = {},
+          }, },
+          { skip_head_uri = {
+              type = "array",
+              elements = { type = "string" },
+              default = {},
+          }, },
+          { skip_patch_uri = {
+              type = "array",
+              elements = { type = "string" },
+              default = {},
+          }, },
+        },
+      },
+    },
+  },
+  entity_checks = {
+    { conditional = {
+        if_field = "config.maximum_expiration",
+        if_match = { gt = 0 },
+        then_field = "config.claims_to_verify",
+        then_match = { contains = "exp" },
+    }, },
+  },
+}
