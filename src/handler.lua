@@ -81,7 +81,7 @@ local function skip_uri(conf)
     local ok = false
 
     lodash.forEach(
-        conf.skip_get_uri,
+        conf.skip_uri,
         function(uri)
             local item = split(uri, "=>")
 

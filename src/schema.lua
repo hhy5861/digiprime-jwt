@@ -32,45 +32,10 @@ return {
                         }
                     },
                     {
-                        skip_get_uri = {
+                        skip_uri = {
                             type = "array",
                             elements = {type = "string"},
-                            default = {}
-                        }
-                    },
-                    {
-                        skip_post_uri = {
-                            type = "array",
-                            elements = {type = "string"},
-                            default = {}
-                        }
-                    },
-                    {
-                        skip_put_uri = {
-                            type = "array",
-                            elements = {type = "string"},
-                            default = {}
-                        }
-                    },
-                    {
-                        skip_delete_uri = {
-                            type = "array",
-                            elements = {type = "string"},
-                            default = {}
-                        }
-                    },
-                    {
-                        skip_head_uri = {
-                            type = "array",
-                            elements = {type = "string"},
-                            default = {}
-                        }
-                    },
-                    {
-                        skip_patch_uri = {
-                            type = "array",
-                            elements = {type = "string"},
-                            default = {}
+                            default = {"GET=>/ping"}
                         }
                     }
                 }
