@@ -1,42 +1,27 @@
-local constants = require "kong.constants"
 local jwt_decoder = require "kong.plugins.digiprime-jwt.jwt_parser"
 local sequence = require "kong.plugins.digiprime-jwt.asn_sequence"
 local router = require "router"
+local lodash = require "lodash"
 
-local fmt = string.format
 local kong = kong
 local type = type
 local error = error
 local ipairs = ipairs
 local tostring = tostring
 local re_gmatch = ngx.re.gmatch
-local _ = require "lodash"
+local ngx_log = ngx.log
+local ngx_NOTICE = ngx.NOTICE
 
-local JwtHandler = {
+local DigiprimeJwtHandler = {
   PRIORITY = 1005,
   VERSION = "0.0.1",
 }
 
---- Retrieve a JWT in a request.
--- Checks for the JWT in URI parameters, then in cookies, and finally
--- in the configured header_names (defaults to `[Authorization]`).
--- @param request ngx request object
--- @param conf Plugin configuration
--- @return token JWT token contained in request (can be a table) or nil
--- @return err
 local function retrieve_token(conf)
   local args = kong.request.get_query()
   for _, v in ipairs(conf.uri_param_names) do
     if args[v] then
       return args[v]
-    end
-  end
-
-  local var = ngx.var
-  for _, v in ipairs(conf.cookie_names) do
-    local cookie = var["cookie_" .. v]
-    if cookie and cookie ~= "" then
-      return cookie
     end
   end
 
@@ -70,10 +55,10 @@ local function set_headers(claims)
   local set_header = kong.service.request.set_header
   local clear_header = kong.service.request.clear_header
 
-  _.forEach(sequence.HEADERS, function(key)
+  lodash.forEach(sequence.HEADERS, function(key)
     local values = claims[key]
     if values then
-      set_header(key, user)
+      set_header(key, values)
     else
       clear_header(key)
     end
@@ -81,57 +66,128 @@ local function set_headers(claims)
 
 end
 
+local function split(s, delimiter)
+  local result = {};
+  for match in (s .. delimiter):gmatch("(.-)" .. delimiter) do
+    table.insert(result, match);
+  end
+  return result;
+end
+
 local function skip_uri(conf)
   local r = router.new()
-  local is_skip = false
+  local ok = false
 
-  _.forEach(conf.skip_get_uri, function(uri)
-    r.match("GET", uri, function()
-      is_skip = true
-    end)
+  lodash.forEach(conf.skip_get_uri, function(uri)
+    --r.match("GET", uri, function()
+    --  ngx_log(ngx_NOTICE, "skip get uri (", uri, ")")
+    --  ok = true
+    --end)
+
+    local item = split(uri, "=>")
+
+    ngx_log(ngx_NOTICE, "item (", table.getn(item), ")")
+
+    if table.getn(item) == 2 then
+      local mds = item[1]
+      local path = item[2]
+
+      ngx_log(ngx_NOTICE, "md (", item[1], ")")
+      ngx_log(ngx_NOTICE, "path (", item[2], ")")
+
+      local matchs = { mds = {[path] = function(params) ok = true end,}}
+      r:match(matchs)
+    elseif table.getn(item) == 1 then
+      path = item[1]
+      local methods = { 'get', 'post', 'put', 'patch', 'delete', 'trace', 'connect', 'options', 'head' }
+      for i, method in ipairs(methods) do
+        r:match({
+          method = {
+            [path] = function(params)
+              ok = true
+            end,
+          }
+        })
+      end
+    end
   end)
 
-  _.forEach(conf.skip_post_uri, function(uri)
-    r.match("POST", uri, function()
-      is_skip = true
-    end)
-  end)
+  --r:match({
+  --  GET = {
+  --    ["/ping"] = function(params)
+  --      ok = true
+  --    end,
+  --  }
+  --})
 
-  _.forEach(conf.skip_put_uri, function(uri)
-    r.match("PUT", uri, function()
-      is_skip = true
-    end)
-  end)
-
-  _.forEach(conf.skip_delete_uri, function(uri)
-    r.match("DELETE", uri, function()
-      is_skip = true
-    end)
-  end)
-
-  _.forEach(conf.skip_head_uri, function(uri)
-    r.match("HEAD", uri, function()
-      is_skip = true
-    end)
-  end)
-
-  _.forEach(conf.skip_patch_uri, function(uri)
-    r.match("PATCH", uri, function()
-      is_skip = true
-    end)
-  end)
+  --lodash.forEach(conf.skip_post_uri, function(uri)
+  --  r.match("POST", uri, function()
+  --    matched_protected_resource = true
+  --  end)
+  --end)
+  --
+  --lodash.forEach(conf.skip_put_uri, function(uri)
+  --  r.match("PUT", uri, function()
+  --    matched_protected_resource = true
+  --  end)
+  --end)
+  --
+  --lodash.forEach(conf.skip_delete_uri, function(uri)
+  --  r.match("DELETE", uri, function()
+  --    matched_protected_resource = true
+  --  end)
+  --end)
+  --
+  --lodash.forEach(conf.skip_head_uri, function(uri)
+  --  r.match("HEAD", uri, function()
+  --    matched_protected_resource = true
+  --  end)
+  --end)
+  --
+  --lodash.forEach(conf.skip_patch_uri, function(uri)
+  --  r.match("PATCH", uri, function()
+  --    matched_protected_resource = true
+  --  end)
+  --end)
 
   local method = kong.request.get_method()
-  local uri = kong.request.get_path()
-  r:execute(method, uri)
+  local path = kong.request.get_path()
 
-  return is_skip
+  ngx_log(ngx_NOTICE, "method (", method, ")")
+  ngx_log(ngx_NOTICE, "uri (", path, ")")
+
+  r:execute(string.upper(method), path)
+
+  ngx_log(ngx_NOTICE, "ok (", ok, ")")
+  return ok
+end
+
+local function decodeToken(token)
+  local jwt, err = jwt_decoder:new(token)
+  if err then
+    return "", err
+  end
+
+  return jwt, nil
 end
 
 local function do_authentication(conf)
   local token, err = retrieve_token(conf)
   if err then
     return error(err)
+  end
+
+  -- if skip uri path
+  local ok = skip_uri(conf)
+  if ok then
+    if type(token) == "string" then
+      local jwt, err = decodeToken(token)
+      if err == nil then
+        set_headers(jwt.claims)
+      end
+    end
+
+    return true
   end
 
   local token_type = type(token)
@@ -146,15 +202,12 @@ local function do_authentication(conf)
   end
 
   -- Decode token to find out who the consumer is
-  local jwt, err = jwt_decoder:new(token)
-  if err then
+  local jwt, err = decodeToken(token)
+  if err ~= nil then
     return false, { status = 401, message = "Bad token; " .. tostring(err) }
   end
 
-  local claims = jwt.claims
-  local header = jwt.header
-
-  local algorithm = header.alg
+  local algorithm = jwt.header.alg
   local jwt_secret_value = algorithm ~= nil and algorithm:sub(1, 2) == "HS" and conf.secret_key
 
   if conf.secret_is_base64 then
@@ -178,12 +231,12 @@ local function do_authentication(conf)
     end
   end
 
-  set_headers(claims)
+  set_headers(jwt.claims)
 
   return true
 end
 
-function JwtHandler:access(conf)
+function DigiprimeJwtHandler:access(conf)
   -- check if preflight request and whether it should be authenticated
   if not conf.run_on_preflight and kong.request.get_method() == "OPTIONS" then
     return
@@ -195,4 +248,4 @@ function JwtHandler:access(conf)
   end
 end
 
-return JwtHandler
+return DigiprimeJwtHandler

@@ -12,7 +12,7 @@ source = {
 version = source.tag .. "-1"
 
 description = {
-  summary = "digiprime jwt is a auth plugin for Kong",
+  summary = "shuinfo digiprime jwt is a auth plugin for Kong",
   homepage = "https://github.com/hhy5861/digiprime-jwt",
   license = "Apache-2.0"
 }

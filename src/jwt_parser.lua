@@ -16,7 +16,6 @@ local sub = string.sub
 local find = string.find
 local type = type
 local time = ngx.time
-local pairs = pairs
 local error = error
 local pcall = pcall
 local concat = table.concat

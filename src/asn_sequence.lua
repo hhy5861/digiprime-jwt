@@ -15,7 +15,8 @@ local _M = {
     EXT_INFO = "ext-info",
     POS_ACCOUNT = "pos-account",
     POS_DEVICE = "pos-device",
-    POS_STORE = "pos-store"
+    POS_STORE = "pos-store",
+    NAME = "name",
   },
 }
 
