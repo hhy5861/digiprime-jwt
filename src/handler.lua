@@ -56,7 +56,7 @@ local function set_headers(claims)
     local clear_header = kong.service.request.clear_header
 
     lodash.forEach(
-        sequence.HEADERS,
+    sequence.HEADERS,
         function(key)
             local values = claims[key]
             if values then
@@ -81,7 +81,7 @@ local function skip_uri(conf)
     local ok = false
 
     lodash.forEach(
-        conf.skip_uri,
+    conf.exclude_method_path,
         function(uri)
             local item = split(uri, "=>")
 
@@ -90,93 +90,93 @@ local function skip_uri(conf)
 
             if skipMethod == "GET" then
                 r:match(
-                    {
+                {
                         GET = {
                             [skipUri] = function(params)
                                 ok = true
                             end
                         }
-                    }
+                }
                 )
             elseif skipMethod == "POST" then
                 r:match(
-                    {
+                {
                         POST = {
                             [skipUri] = function(params)
                                 ok = true
                             end
                         }
-                    }
+                }
                 )
             elseif skipMethod == "PUT" then
                 r:match(
-                    {
+                {
                         PUT = {
                             [skipUri] = function(params)
                                 ok = true
                             end
                         }
-                    }
+                }
                 )
             elseif skipMethod == "PATCH" then
                 r:match(
-                    {
+                {
                         PATCH = {
                             [skipUri] = function(params)
                                 ok = true
                             end
                         }
-                    }
+                }
                 )
             elseif skipMethod == "DELETE" then
                 r:match(
-                    {
+                {
                         DELETE = {
                             [skipUri] = function(params)
                                 ok = true
                             end
                         }
-                    }
+                }
                 )
             elseif skipMethod == "TRACE" then
                 r:match(
-                    {
+                {
                         TRACE = {
                             [skipUri] = function(params)
                                 ok = true
                             end
                         }
-                    }
+                }
                 )
             elseif skipMethod == "CONNECT" then
                 r:match(
-                    {
+                {
                         CONNECT = {
                             [skipUri] = function(params)
                                 ok = true
                             end
                         }
-                    }
+                }
                 )
             elseif skipMethod == "OPTIONS" then
                 r:match(
-                    {
+                {
                         PUT = {
                             [skipUri] = function(params)
                                 ok = true
                             end
                         }
-                    }
+                }
                 )
             elseif skipMethod == "HEAD" then
                 r:match(
-                    {
+                {
                         HEAD = {
                             [skipUri] = function(params)
                                 ok = true
                             end
                         }
-                    }
+                }
                 )
             end
         end
@@ -220,18 +220,18 @@ local function do_authentication(conf)
     local token_type = type(token)
     if token_type ~= "string" then
         if token_type == "nil" then
-            return false, {status = 401, message = "Unauthorized"}
+            return false, { status = 401, message = "Unauthorized" }
         elseif token_type == "table" then
-            return false, {status = 401, message = "Multiple tokens provided"}
+            return false, { status = 401, message = "Multiple tokens provided" }
         else
-            return false, {status = 401, message = "Unrecognizable token"}
+            return false, { status = 401, message = "Unrecognizable token" }
         end
     end
 
     -- Decode token to find out who the consumer is
     local jwt, err = decodeToken(token)
     if err ~= nil then
-        return false, {status = 401, message = "Bad token; " .. tostring(err)}
+        return false, { status = 401, message = "Bad token; " .. tostring(err) }
     end
 
     local algorithm = jwt.header.alg
@@ -242,19 +242,19 @@ local function do_authentication(conf)
     end
 
     if not jwt_secret_value then
-        return false, {status = 401, message = "Invalid key/secret"}
+        return false, { status = 401, message = "Invalid key/secret" }
     end
 
     -- Now verify the JWT signature
     if not jwt:verify_signature(jwt_secret_value) then
-        return false, {status = 401, message = "Invalid signature"}
+        return false, { status = 401, message = "Invalid signature" }
     end
 
     -- Verify the JWT registered claims
     if conf.maximum_expiration ~= nil and conf.maximum_expiration > 0 then
         local ok, errors = jwt:check_maximum_expiration(conf.maximum_expiration)
         if not ok then
-            return false, {status = 401, errors = errors}
+            return false, { status = 401, errors = errors }
         end
     end
 
@@ -271,7 +271,7 @@ function DigiprimeJwtHandler:access(conf)
 
     local ok, err = do_authentication(conf)
     if not ok then
-        return kong.response.exit(err.status, err.errors or {message = err.message})
+        return kong.response.exit(err.status, err.errors or { message = err.message })
     end
 end
 

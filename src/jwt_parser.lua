@@ -199,12 +199,12 @@ local function decode_token(token)
 
     -- Decode JSON
     local ok, header, claims, signature =
-        pcall(
-        function()
-            return json.decode(base64_decode(header_64)), json.decode(base64_decode(claims_64)), base64_decode(
-                signature_64
-            )
-        end
+    pcall(
+    function()
+        return json.decode(base64_decode(header_64)), json.decode(base64_decode(claims_64)), base64_decode(
+        signature_64
+        )
+    end
     )
     if not ok then
         return nil, "invalid JSON"
@@ -252,7 +252,7 @@ local function encode_token(data, key, alg, header)
         error("Algorithm not supported", 2)
     end
 
-    local header = header or {typ = "JWT", alg = alg}
+    local header = header or { typ = "JWT", alg = alg }
     local segments = {
         base64_encode(json.encode(header)),
         base64_encode(json.encode(data))
@@ -275,7 +275,7 @@ local function add_error(errors, k, v)
 
     if errors and errors[k] then
         if getmetatable(errors[k]) ~= err_list_mt then
-            errors[k] = setmetatable({errors[k]}, err_list_mt)
+            errors[k] = setmetatable({ errors[k] }, err_list_mt)
         end
 
         insert(errors[k], v)
@@ -285,13 +285,15 @@ local function add_error(errors, k, v)
 
     return errors
 end
- --
+
+--
 
 --[[
 
   JWT public interface
 
-]] local _M = {}
+]]
+local _M = {}
 
 _M.__index = _M
 
@@ -358,7 +360,7 @@ function _M:check_maximum_expiration(maximum_expiration)
 
     local exp = self.claims.exp
     if exp == nil or exp - time() > maximum_expiration then
-        return false, {exp = "exceeds maximum allowed expiration"}
+        return false, { exp = "exceeds maximum allowed expiration" }
     end
 
     return true
