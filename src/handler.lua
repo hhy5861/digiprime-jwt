@@ -220,7 +220,7 @@ local function exclude_uri_v2(paths)
 
         local opts = {
             method = kong.request.get_method(),
-            vars = kong.request.get_query_arg(),
+            vars = ngx.var,
         }
 
         local metadata, err = rx:match(kong.request.get_path(), opts)
