@@ -6,7 +6,7 @@ supported_platforms = {"linux", "macosx"}
 
 source = {
   url = "git://github.com/hhy5861/digiprime-jwt",
-  tag = "0.0.1"
+  tag = "0.0.2"
 }
 
 version = source.tag .. "-1"
@@ -19,7 +19,8 @@ description = {
 
 dependencies = {
   "router == 2.1-0",
-  "lodash == 0.02-0"
+  "lodash == 0.02-0",
+  "lua-resty-radixtree == 2.8.1-0"
 }
 
 build = {

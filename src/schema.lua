@@ -11,7 +11,7 @@ return {
                     {
                         uri_param_names = {
                             type = "set",
-                            elements = { type = "string" },
+                            elements = { type = "string", required = false, default = "token" },
                         }
                     },
                     { secret_is_base64 = { type = "boolean", required = true, default = false } },
@@ -32,6 +32,13 @@ return {
                     },
                     {
                         exclude_method_path = {
+                            type = "array",
+                            elements = { type = "string" },
+                            default = {}
+                        }
+                    },
+                    {
+                        exclude_domain_name = {
                             type = "array",
                             elements = { type = "string" },
                             default = {}

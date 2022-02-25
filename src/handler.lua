@@ -1,7 +1,8 @@
 local jwt_decoder = require "kong.plugins.digiprime-jwt.jwt_parser"
 local sequence = require "kong.plugins.digiprime-jwt.asn_sequence"
 local router = require "router"
-local lodash = require "lodash"
+local _ = require "lodash"
+local radix = require("resty.radixtree")
 
 local kong = kong
 local type = type
@@ -18,34 +19,39 @@ local DigiprimeJwtHandler = {
 }
 
 local function retrieve_token(conf)
-    local args = kong.request.get_query()
-    for _, v in ipairs(conf.uri_param_names) do
-        if args[v] then
-            return args[v]
+    if conf.uri_param_names then
+        local args = kong.request.get_query()
+
+        for _, v in ipairs(conf.uri_param_names) do
+            if args[v] then
+                return args[v]
+            end
         end
     end
 
-    local request_headers = kong.request.get_headers()
-    for _, v in ipairs(conf.header_names) do
-        local token_header = request_headers[v]
-        if token_header then
-            if type(token_header) == "table" then
-                token_header = token_header[1]
-            end
-            local iterator, iter_err = re_gmatch(token_header, "\\s*[Bb]earer\\s+(.+)")
-            if not iterator then
-                kong.log.err(iter_err)
-                break
-            end
+    if table.getn(conf.header_names) > 0 then
+        local request_headers = kong.request.get_headers()
+        for _, v in ipairs(conf.header_names) do
+            local token_header = request_headers[v]
+            if token_header then
+                if type(token_header) == "table" then
+                    token_header = token_header[1]
+                end
+                local iterator, iter_err = re_gmatch(token_header, "\\s*[Bb]earer\\s+(.+)")
+                if not iterator then
+                    kong.log.err(iter_err)
+                    break
+                end
 
-            local m, err = iterator()
-            if err then
-                kong.log.err(err)
-                break
-            end
+                local m, err = iterator()
+                if err then
+                    kong.log.err(err)
+                    break
+                end
 
-            if m and #m > 0 then
-                return m[1]
+                if m and #m > 0 then
+                    return m[1]
+                end
             end
         end
     end
@@ -55,7 +61,7 @@ local function set_headers(claims)
     local set_header = kong.service.request.set_header
     local clear_header = kong.service.request.clear_header
 
-    lodash.forEach(
+    _.forEach(
     sequence.HEADERS,
         function(key)
             local values = claims[key]
@@ -76,12 +82,16 @@ local function split(s, delimiter)
     return result
 end
 
-local function skip_uri(conf)
-    local r = router.new()
+local function exclude_uri(paths)
     local ok = false
+    if table.getn(conf.paths) <= 0 then
+        return ok
+    end
 
-    lodash.forEach(
-    conf.exclude_method_path,
+    local r = router.new()
+
+    _.forEach(
+    conf.paths,
         function(uri)
             local item = split(uri, "=>")
 
@@ -189,6 +199,61 @@ local function skip_uri(conf)
     return ok
 end
 
+local function exclude_uri_v2(paths)
+    if table.getn(paths) then
+        local radix = require("resty.radixtree")
+
+        local routes = {}
+        _.forEach(paths, function(path)
+            local item = split(uri, "=>")
+
+            if table.getn(item) > 0 then
+                local method = item[1]
+                local path = item[2]
+
+                table.insert(routes, {
+                    paths = { path },
+                    methods = { method },
+                    metadata = true,
+                })
+            end
+        end)
+
+        local rx = radix.new(routes)
+
+        local opts = {
+            method = kong.request.get_method(),
+            vars = kong.request.get_query_arg(),
+        }
+
+        local metadata, err = rx:match(kong.request.get_path(), opts)
+        if err or metadata == nil then
+            return false
+        end
+
+        return metadata
+    end
+
+    return false
+end
+
+local function exclude_domain(conf)
+    local isExclude = false
+    if table.getn(conf.exclude_domain_name) <= 0 then
+        return isExclude
+    end
+
+    local requestDomain = kong.request.get_host()
+
+    _.forEach(conf.exclude_domain_name, function(domain)
+        if domain == requestDomain then
+            isExclude = true
+        end
+    end)
+
+    return isExclude
+end
+
 local function decodeToken(token)
     local jwt, err = jwt_decoder:new(token)
     if err then
@@ -204,9 +269,13 @@ local function do_authentication(conf)
         return error(err)
     end
 
-    -- if skip uri path
-    local ok = skip_uri(conf)
-    if ok then
+    -- if exclude uri path and domain name
+    local domainName = exclude_domain(conf)
+    local excludePath = exclude_uri_v2(conf.exclude_method_path)
+    kong.log.err("domainName ", domainName)
+    kong.log.err("excludePath ", excludePath)
+
+    if excludePath or domainName then
         if type(token) == "string" then
             local jwt, err = decodeToken(token)
             if err == nil then
