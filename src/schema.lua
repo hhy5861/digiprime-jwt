@@ -36,13 +36,6 @@ return {
                             elements = { type = "string" },
                             default = { "GET=>/index" }
                         }
-                    },
-                    {
-                        exclude_domain_name = {
-                            type = "array",
-                            elements = { type = "string" },
-                            default = {}
-                        }
                     }
                 }
             }

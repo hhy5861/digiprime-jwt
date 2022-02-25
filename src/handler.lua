@@ -3,14 +3,13 @@ local sequence = require "kong.plugins.digiprime-jwt.asn_sequence"
 local radix = require("resty.radixtree")
 local _ = require "lodash"
 
+local var = ngx.var
 local kong = kong
 local type = type
 local error = error
 local ipairs = ipairs
 local tostring = tostring
 local re_gmatch = ngx.re.gmatch
-local ngx_log = ngx.log
-local ngx_NOTICE = ngx.NOTICE
 
 local DigiprimeJwtHandler = {
     PRIORITY = 1005,
@@ -61,7 +60,7 @@ local function set_headers(claims)
     local clear_header = kong.service.request.clear_header
 
     _.forEach(
-    sequence.HEADERS,
+        sequence.HEADERS,
         function(key)
             local values = claims[key]
             if values then
@@ -83,8 +82,6 @@ end
 
 local function exclude_uri(paths)
     if table.getn(paths) then
-        local radix = require("resty.radixtree")
-
         local routes = {}
         _.forEach(paths, function(path)
             local item = split(path, "=>")
@@ -102,7 +99,7 @@ local function exclude_uri(paths)
 
         local opts = {
             method = kong.request.get_method(),
-            vars = ngx.var,
+            vars = var,
         }
 
         local metadata, err = rx:match(kong.request.get_path(), opts)
@@ -114,23 +111,6 @@ local function exclude_uri(paths)
     end
 
     return false
-end
-
-local function exclude_domain(conf)
-    local isExclude = true
-    if table.getn(conf.exclude_domain_name) <= 0 then
-        return isExclude
-    end
-
-    local requestDomain = kong.request.get_host()
-
-    _.forEach(conf.exclude_domain_name, function(domain)
-        if domain == requestDomain then
-            isExclude = false
-        end
-    end)
-
-    return isExclude
 end
 
 local function decodeToken(token)
@@ -149,12 +129,8 @@ local function do_authentication(conf)
     end
 
     -- if exclude uri path and domain name
-    local domainName = exclude_domain(conf)
     local excludePath = exclude_uri(conf.exclude_method_path)
-    kong.log.err("domainName ", domainName)
-    kong.log.err("excludePath ", excludePath)
-
-    if excludePath or domainName then
+    if excludePath then
         if type(token) == "string" then
             local jwt, err = decodeToken(token)
             if err == nil then
