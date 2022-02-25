@@ -27,14 +27,14 @@ return {
                         header_names = {
                             type = "set",
                             elements = { type = "string" },
-                            default = { "authorization" }
+                            default = { "Authorization", "x-token" }
                         }
                     },
                     {
                         exclude_method_path = {
                             type = "array",
                             elements = { type = "string" },
-                            default = {}
+                            default = { "GET=>/index" }
                         }
                     },
                     {

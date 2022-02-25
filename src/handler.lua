@@ -1,8 +1,7 @@
 local jwt_decoder = require "kong.plugins.digiprime-jwt.jwt_parser"
 local sequence = require "kong.plugins.digiprime-jwt.asn_sequence"
-local router = require "router"
-local _ = require "lodash"
 local radix = require("resty.radixtree")
+local _ = require "lodash"
 
 local kong = kong
 local type = type
@@ -83,123 +82,6 @@ local function split(s, delimiter)
 end
 
 local function exclude_uri(paths)
-    local ok = false
-    if table.getn(conf.paths) <= 0 then
-        return ok
-    end
-
-    local r = router.new()
-
-    _.forEach(
-    conf.paths,
-        function(uri)
-            local item = split(uri, "=>")
-
-            local skipMethod = string.upper(item[1])
-            local skipUri = item[2]
-
-            if skipMethod == "GET" then
-                r:match(
-                {
-                        GET = {
-                            [skipUri] = function(params)
-                                ok = true
-                            end
-                        }
-                }
-                )
-            elseif skipMethod == "POST" then
-                r:match(
-                {
-                        POST = {
-                            [skipUri] = function(params)
-                                ok = true
-                            end
-                        }
-                }
-                )
-            elseif skipMethod == "PUT" then
-                r:match(
-                {
-                        PUT = {
-                            [skipUri] = function(params)
-                                ok = true
-                            end
-                        }
-                }
-                )
-            elseif skipMethod == "PATCH" then
-                r:match(
-                {
-                        PATCH = {
-                            [skipUri] = function(params)
-                                ok = true
-                            end
-                        }
-                }
-                )
-            elseif skipMethod == "DELETE" then
-                r:match(
-                {
-                        DELETE = {
-                            [skipUri] = function(params)
-                                ok = true
-                            end
-                        }
-                }
-                )
-            elseif skipMethod == "TRACE" then
-                r:match(
-                {
-                        TRACE = {
-                            [skipUri] = function(params)
-                                ok = true
-                            end
-                        }
-                }
-                )
-            elseif skipMethod == "CONNECT" then
-                r:match(
-                {
-                        CONNECT = {
-                            [skipUri] = function(params)
-                                ok = true
-                            end
-                        }
-                }
-                )
-            elseif skipMethod == "OPTIONS" then
-                r:match(
-                {
-                        PUT = {
-                            [skipUri] = function(params)
-                                ok = true
-                            end
-                        }
-                }
-                )
-            elseif skipMethod == "HEAD" then
-                r:match(
-                {
-                        HEAD = {
-                            [skipUri] = function(params)
-                                ok = true
-                            end
-                        }
-                }
-                )
-            end
-        end
-    )
-
-    local requestMethod = kong.request.get_method()
-    local requestPath = kong.request.get_path()
-
-    r:execute(string.upper(requestMethod), requestPath)
-    return ok
-end
-
-local function exclude_uri_v2(paths)
     if table.getn(paths) then
         local radix = require("resty.radixtree")
 
@@ -235,7 +117,7 @@ local function exclude_uri_v2(paths)
 end
 
 local function exclude_domain(conf)
-    local isExclude = false
+    local isExclude = true
     if table.getn(conf.exclude_domain_name) <= 0 then
         return isExclude
     end
@@ -244,7 +126,7 @@ local function exclude_domain(conf)
 
     _.forEach(conf.exclude_domain_name, function(domain)
         if domain == requestDomain then
-            isExclude = true
+            isExclude = false
         end
     end)
 
@@ -268,7 +150,7 @@ local function do_authentication(conf)
 
     -- if exclude uri path and domain name
     local domainName = exclude_domain(conf)
-    local excludePath = exclude_uri_v2(conf.exclude_method_path)
+    local excludePath = exclude_uri(conf.exclude_method_path)
     kong.log.err("domainName ", domainName)
     kong.log.err("excludePath ", excludePath)
 
