@@ -205,15 +205,12 @@ local function exclude_uri_v2(paths)
 
         local routes = {}
         _.forEach(paths, function(path)
-            local item = split(uri, "=>")
+            local item = split(path, "=>")
 
             if table.getn(item) > 0 then
-                local method = item[1]
-                local path = item[2]
-
                 table.insert(routes, {
-                    paths = { path },
-                    methods = { method },
+                    paths = { item[2] },
+                    methods = { item[1] },
                     metadata = true,
                 })
             end
