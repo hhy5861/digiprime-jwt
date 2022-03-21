@@ -51,7 +51,7 @@ local function retrieve_token(conf)
                 if m and #m > 0 then
                     return m[1]
                 else
-                    return m[0]
+                    return token_header
                 end
             end
         end

@@ -6,7 +6,7 @@ supported_platforms = {"linux", "macosx"}
 
 source = {
   url = "git://github.com/hhy5861/digiprime-jwt",
-  tag = "0.0.7"
+  tag = "0.0.8"
 }
 
 version = source.tag .. "-1"
