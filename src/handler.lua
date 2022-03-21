@@ -35,6 +35,7 @@ local function retrieve_token(conf)
                 if type(token_header) == "table" then
                     token_header = token_header[1]
                 end
+
                 local iterator, iter_err = re_gmatch(token_header, "\\s*[Bb]earer\\s+(.+)")
                 if not iterator then
                     kong.log.err(iter_err)
@@ -49,6 +50,8 @@ local function retrieve_token(conf)
 
                 if m and #m > 0 then
                     return m[1]
+                else
+                    return m[0]
                 end
             end
         end
@@ -66,7 +69,10 @@ local function set_headers(claims)
             if values then
                 set_header(key, values)
             else
-                clear_header(key)
+                local request_headers = kong.request.get_headers()
+                if not request_headers[key] then
+                    clear_header(key)
+                end
             end
         end
     )
