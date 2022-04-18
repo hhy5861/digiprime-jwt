@@ -62,9 +62,9 @@ local function set_headers(claims)
     local set_header = kong.service.request.set_header
     local clear_header = kong.service.request.clear_header
 
-    local binary_remote_addr = ngx.var.binary_remote_addr
-    if binary_remote_addr then
-        set_header("x-envoy-external-address", binary_remote_addr)
+    local remote_addr = kong.client.get_ip()
+    if remote_addr then
+        set_header("x-envoy-external-address", remote_addr)
     end
 
     _.forEach(

@@ -1,7 +1,7 @@
 FROM kong:2.8.1-alpine
 LABEL Mike Huang, hhy5861@gmail.com
 
-ENV KONG_PLUGINS_TAG 0.0.9
+ENV KONG_PLUGINS_TAG 0.0.10
 ENV KONG_PLUGINS 'bundled, digiprime-jwt'
 
 USER root
