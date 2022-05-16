@@ -17,10 +17,10 @@ return {
                     { secret_is_base64 = { type = "boolean", required = true, default = false } },
                     { secret_key = { type = "string", required = true, default = "^yTrOcL1Mkx!WJHOtVeun#mXjxc*DjBA" } },
                     {
-                        maximum_expiration = {
-                            type = "number",
-                            default = 0,
-                            between = { 0, 31536000 }
+                        expiration = {
+                            type = "boolean",
+                            required = true,
+                            default = false,
                         }
                     },
                     {

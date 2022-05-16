@@ -200,11 +200,11 @@ local function decode_token(token)
     -- Decode JSON
     local ok, header, claims, signature =
     pcall(
-    function()
-        return json.decode(base64_decode(header_64)), json.decode(base64_decode(claims_64)), base64_decode(
-        signature_64
-        )
-    end
+        function()
+            return json.decode(base64_decode(header_64)), json.decode(base64_decode(claims_64)), base64_decode(
+                signature_64
+            )
+        end
     )
     if not ok then
         return nil, "invalid JSON"
@@ -353,13 +353,9 @@ local registered_claims = {
 -- @return A Boolean indicating true if the claim has reached the maximum
 -- allowed expiration time
 -- @return error if any
-function _M:check_maximum_expiration(maximum_expiration)
-    if maximum_expiration <= 0 then
-        return true
-    end
-
+function _M:check_maximum_expiration()
     local exp = self.claims.exp
-    if exp == nil or exp - time() > maximum_expiration then
+    if exp == nil or exp < time() then
         return false, { exp = "exceeds maximum allowed expiration" }
     end
 
