@@ -16,13 +16,7 @@ return {
                     },
                     { secret_is_base64 = { type = "boolean", required = true, default = false } },
                     { secret_key = { type = "string", required = true, default = "^yTrOcL1Mkx!WJHOtVeun#mXjxc*DjBA" } },
-                    {
-                        expiration = {
-                            type = "boolean",
-                            required = true,
-                            default = false,
-                        }
-                    },
+                    { is_expiration = { type = "boolean", required = false, default = false } },
                     {
                         header_names = {
                             type = "set",
@@ -41,14 +35,5 @@ return {
             }
         }
     },
-    entity_checks = {
-        {
-            conditional = {
-                if_field = "config.maximum_expiration",
-                if_match = { gt = 0 },
-                then_field = "config.claims_to_verify",
-                then_match = { contains = "exp" }
-            }
-        }
-    }
+    entity_checks = {}
 }

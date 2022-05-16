@@ -186,7 +186,7 @@ local function do_authentication(conf)
     end
 
     -- Verify the JWT registered claims
-    if conf.expiration then
+    if conf.is_expiration then
         local ok, errors = jwt:check_maximum_expiration()
         if not ok then
             return false, { status = 401, errors = errors }
